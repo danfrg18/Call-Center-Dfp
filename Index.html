@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Registro de Asistentes - Call Center DFP Malambo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-dark: #4338ca;
+      --primary-light: #6366f1;
+      --accent: #f59e0b;
+      --accent-soft: #fef3c7;
+      --bg: #f8fafc;
+      --bg-2: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --text-2: #334155;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --border-light: #f1f5f9;
+      --success: #10b981;
+      --success-soft: #d1fae5;
+      --warning: #f59e0b;
+      --warning-soft: #fef3c7;
+      --danger: #ef4444;
+      --danger-soft: #fee2e2;
+      --info: #3b82f6;
+      --info-soft: #dbeafe;
+      --purple: #8b5cf6;
+      --purple-soft: #ede9fe;
+      --radius: 18px;
+      --radius-sm: 12px;
+      --radius-xs: 8px;
+      --shadow: 0 1px 3px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.04);
+      --shadow-md: 0 4px 20px rgba(15,23,42,.08);
+      --shadow-lg: 0 12px 40px rgba(15,23,42,.12);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; width: 100%; max-width: 100%; overflow-x: hidden; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 22px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      width: 100%;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4 { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; font-weight: 700; }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #8b5cf6 100%);
+      color: #fff;
+      padding: 24px 16px 28px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 20px rgba(79,70,229,.25);
+      width: 100%;
+    }
+    .header-inner { max-width: 1200px; margin: 0 auto; width: 100%; }
+    .header h1 { font-size: 28px; font-weight: 800; letter-spacing: -.3px; margin: 0; }
+    .header p { font-size: 16px; opacity: .85; margin: 4px 0 0; font-weight: 500; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 14px; width: 100%; }
+
+    /* Segmented tabs */
+    .tabs {
+      display: flex; gap: 4px; margin-bottom: 16px;
+      background: #e2e8f0; padding: 4px; border-radius: 14px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      width: 100%;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      flex: 1; padding: 16px 14px; border-radius: 10px; cursor: pointer;
+      background: transparent; border: none;
+      font-weight: 600; font-size: 18px; transition: all .2s;
+      white-space: nowrap; min-height: 60px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      color: var(--muted); font-family: inherit;
+    }
+    .tab.active {
+      background: #fff; color: var(--primary);
+      box-shadow: 0 2px 8px rgba(15,23,42,.1);
+    }
+
+    .panel { display: none; width: 100%; }
+    .panel.active { display: block; animation: fadeIn .3s ease; }
+    .subpanel { display: none; width: 100%; }
+    .subpanel.active { display: block; animation: fadeIn .3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px);} to { opacity:1; transform:none;} }
+
+    /* Cards */
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 22px;
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
+      width: 100%;
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+    }
+    .card-title { font-size: 22px; font-weight: 700; color: var(--text); margin: 0; }
+    .card-subtitle { font-size: 16px; color: var(--muted); margin: 2px 0 0; }
+
+    /* Form grid */
+    .form-grid { display: grid; gap: 14px; width: 100%; }
+    .form-grid.cols-2 { grid-template-columns: 1fr; }
+    @media (min-width: 600px) { .form-grid.cols-2 { grid-template-columns: 1fr 1fr; } }
+
+    .field { position: relative; width: 100%; }
+    .field label {
+      display: block; font-size: 14px; font-weight: 600;
+      color: var(--muted); margin-bottom: 6px; text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+    .field input, .field select, .field textarea {
+      width: 100%; padding: 18px 20px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 22px; font-family: inherit; color: var(--text);
+      background: #fafbfd; transition: all .2s;
+      min-height: 62px;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+      background: #fff;
+    }
+    .field textarea { resize: vertical; min-height: 80px; font-size: 20px; }
+
+    /* Buttons */
+    .btn {
+      padding: 18px 22px; border: none; border-radius: var(--radius-sm);
+      cursor: pointer; font-weight: 600; font-size: 19px;
+      transition: all .2s; display: inline-flex; align-items: center;
+      justify-content: center; gap: 7px; min-height: 62px;
+      touch-action: manipulation; font-family: inherit;
+      letter-spacing: .2px; text-decoration: none;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: #fff; box-shadow: 0 4px 16px rgba(79,70,229,.3);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 24px rgba(79,70,229,.4); transform: translateY(-1px); }
+    .btn-secondary { background: #f1f5f9; color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: #e2e8f0; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-ghost { background: transparent; color: var(--primary); border: 1px solid var(--border); }
+    .btn-sm { padding: 12px 16px; font-size: 16px; min-height: 46px; border-radius: var(--radius-xs); }
+    .btn-block { width: 100%; }
+    .btn-icon { padding: 10px; min-width: 44px; }
+
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+    @media (max-width: 500px) { .actions .btn { flex: 1 1 100%; } }
+
+    /* Stats */
+    .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+    @media (min-width: 640px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+    .stat {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 16px; text-align: center;
+      box-shadow: var(--shadow); transition: transform .2s, box-shadow .2s;
+    }
+    .stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .stat .num { font-size: 34px; font-weight: 800; color: var(--primary); font-family: 'Plus Jakarta Sans', sans-serif; line-height: 1; }
+    .stat .lbl { font-size: 13px; color: var(--muted); margin-top: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+
+    /* Table */
+    .table-container {
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      border-radius: var(--radius-sm); border: 1px solid var(--border);
+      background: #fff; width: 100%; max-width: 100%;
+    }
+    .table-container table { width: 100%; border-collapse: collapse; font-size: 16px; min-width: 0; }
+    @media (min-width: 768px) { .table-container table { min-width: 780px; } }
+    .table-container th, .table-container td {
+      padding: 14px 16px; text-align: left;
+      border-bottom: 1px solid var(--border-light); white-space: nowrap;
+    }
+    .table-container th {
+      background: #f8fafc; font-weight: 700; color: var(--muted);
+      font-size: 13px; text-transform: uppercase; letter-spacing: .6px;
+      position: sticky; top: 0; z-index: 1;
+    }
+    .table-container tr:last-child td { border-bottom: none; }
+    .table-container tbody tr { transition: background .15s; }
+    .table-container tbody tr:hover td { background: #f8fafc; }
+    .table-container tbody tr:active td { background: #f1f5f9; }
+    .table-container .name-cell { font-weight: 600; color: var(--text); }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 6px 12px; border-radius: 999px;
+      font-size: 13px; font-weight: 700; letter-spacing: .2px;
+    }
+    .badge-pendiente { background: var(--warning-soft); color: #92400e; }
+    .badge-contactado { background: var(--success-soft); color: #065f46; }
+    .badge-nocontestó, .badge-nocontesto { background: var(--danger-soft); color: #991b1b; }
+    .badge-númeroinválido, .badge-numeroinvalido { background: #e5e7eb; color: #374151; }
+    .badge-nointeresa { background: var(--purple-soft); color: #5b21b6; }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+      margin-bottom: 12px;
+    }
+    .toolbar input, .toolbar select {
+      min-width: 0; flex: 1 1 140px; font-size: 17px;
+      padding: 12px 14px; min-height: 50px; border-radius: var(--radius-xs);
+    }
+
+    .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 20px; left: 16px; right: 16px;
+      padding: 14px 18px; background: #0f172a; color: #fff;
+      border-radius: var(--radius-sm); font-size: 17px; font-weight: 500;
+      box-shadow: var(--shadow-lg); opacity: 0; transform: translateY(20px);
+      transition: all .3s cubic-bezier(.2,.8,.2,1); pointer-events: none;
+      z-index: 9999; text-align: center;
+    }
+    @media (min-width: 640px) { .toast { left: auto; right: 20px; min-width: 300px; text-align: left; } }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+
+    .empty { text-align: center; padding: 48px 16px; color: var(--muted); font-size: 16px; }
+    .empty::before { content: '📭'; display: block; font-size: 48px; margin-bottom: 10px; opacity: .6; }
+
+    /* Modal */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(15,23,42,.6); z-index: 1000;
+      align-items: flex-end; justify-content: center;
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    }
+    @media (min-width: 640px) { .modal-backdrop { align-items: center; } }
+    .modal-backdrop.show { display: flex; }
+    .modal {
+      background: var(--card); border-radius: 24px 24px 0 0; padding: 22px;
+      width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto;
+      box-shadow: 0 -10px 40px rgba(0,0,0,.2);
+      animation: slideUp .3s cubic-bezier(.2,.8,.2,1);
+    }
+    @media (min-width: 640px) { .modal { border-radius: 20px; box-shadow: var(--shadow-lg); } }
+    @keyframes slideUp { from { transform: translateY(100%);} to { transform:none;} }
+    .modal h3 { margin: 0 0 6px; font-size: 22px; color: var(--text); font-weight: 700; }
+    .modal .subtitle { color: var(--muted); font-size: 15px; margin-bottom: 16px; }
+    .modal .actions { margin-top: 18px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .modal .actions .btn { flex: 1 1 auto; }
+
+    .hidden { display: none !important; }
+
+    /* User bar */
+    .user-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 10px; flex-wrap: wrap; margin-bottom: 14px;
+      padding: 12px 16px; background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); box-shadow: var(--shadow);
+    }
+    .user-bar .name { font-weight: 700; color: var(--primary); font-size: 18px; }
+    .user-bar .btn { min-height: 36px; padding: 8px 14px; font-size: 14px; }
+
+    /* Login card */
+    .login-card { max-width: 420px; margin: 0 auto; }
+    .login-card h2 { text-align: center; margin-bottom: 6px; }
+    .login-card .subtitle { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+    .login-hint {
+      margin-top: 16px; padding: 12px; background: var(--bg-2);
+      border-radius: var(--radius-xs); font-size: 13px; color: var(--muted);
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>📞 Registro de Asistentes</h1>
+      <p>Call Center DFP Malambo · Trazabilidad y seguimiento</p>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="tabs">
+      <div class="tab active" data-tab="ujier" onclick="showTab('ujier')">👤 Ujier</div>
+      <div class="tab" data-tab="gestion" onclick="showTab('gestion')">🔐 Gestión</div>
+    </div>
+
+    <!-- UJIER -->
+    <div class="panel active" id="panel-ujier">
+      <div class="card">
+        <h2 class="card-title">Nuevo asistente</h2>
+        <p class="card-subtitle" style="margin-bottom:16px;">Registra los datos del asistente nuevo</p>
+        <div class="form-grid cols-2">
+          <div class="field">
+            <label>Nombre y apellido *</label>
+            <input type="text" id="u-nombre" placeholder="Ej: Juan Pérez" autocomplete="name">
+          </div>
+          <div class="field">
+            <label>Teléfono *</label>
+            <input type="tel" id="u-telefono" placeholder="Ej: 3001234567" inputmode="tel" autocomplete="tel">
+          </div>
+          <div class="field">
+            <label>Dirección</label>
+            <input type="text" id="u-direccion" placeholder="Ej: Calle 10 # 5-20" autocomplete="street-address">
+          </div>
+          <div class="field">
+            <label>Punto de referencia</label>
+            <input type="text" id="u-puntoReferencia" placeholder="Ej: Frente al parque">
+          </div>
+          <div class="field">
+            <label>Colaborador (ujier que registró)</label>
+            <input type="text" id="u-colaborador" placeholder="Ej: María García">
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary btn-block" onclick="guardarUjier()">💾 Guardar registro</button>
+          <button class="btn btn-secondary" onclick="limpiarUjier()">🧹 Limpiar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GESTION -->
+    <div class="panel" id="panel-gestion">
+      <div class="card login-card" id="gestion-login">
+        <h2>Ingreso a Gestión</h2>
+        <p class="subtitle">Acceso restringido para gestión de datos</p>
+        <div class="form-grid">
+          <div class="field">
+            <label>Usuario</label>
+            <input type="text" id="g-usuario" placeholder="usuario" autocomplete="username">
+          </div>
+          <div class="field">
+            <label>Contraseña</label>
+            <input type="password" id="g-password" placeholder="••••••" autocomplete="current-password">
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary btn-block" onclick="loginGestion()">Ingresar</button>
+        </div>
+        <div class="login-hint">
+          Usuario por defecto: <strong>admin</strong> / <strong>admin123</strong>.<br>
+          Puedes agregar más usuarios en la hoja "Usuarios" del Spreadsheet.
+        </div>
+      </div>
+
+      <div id="gestion-app" class="hidden">
+        <div class="user-bar">
+          <span class="name" id="gestionUsuario"></span>
+          <button class="btn btn-secondary btn-sm" onclick="logoutGestion()">Cerrar sesión</button>
+        </div>
+
+        <div class="tabs">
+          <div class="tab active" data-subtab="listado" onclick="showSubTab('listado')">📋 Listado</div>
+          <div class="tab" data-subtab="dashboard" onclick="showSubTab('dashboard')">📊 Dashboard</div>
+        </div>
+
+        <div class="subpanel active" id="subpanel-listado">
+          <div class="stats" id="stats"></div>
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Registros de asistentes</h3>
+                <p class="card-subtitle">Gestiona el seguimiento de llamadas</p>
+              </div>
+            </div>
+            <div class="toolbar">
+              <input type="text" id="buscar" placeholder="🔍 Buscar por nombre, teléfono...">
+              <select id="filtroEstado"><option value="">Todos los estados</option></select>
+              <select id="filtroColab"><option value="">Todos los colaboradores</option></select>
+              <button class="btn btn-secondary btn-sm btn-icon" onclick="cargarDatos()" title="Actualizar">🔄</button>
+            </div>
+            <div class="table-container">
+              <table id="tabla">
+                <thead>
+                  <tr>
+                    <th>Fecha</th><th>Nombre</th><th>Teléfono</th><th>Dirección</th>
+                    <th>Punto de ref.</th><th>Colaborador</th><th>Estado</th><th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+              </table>
+            </div>
+            <div class="empty hidden" id="empty">No hay registros que coincidan.</div>
+          </div>
+        </div>
+
+        <div class="subpanel hidden" id="subpanel-dashboard">
+          <div class="card">
+            <h2>Resumen por colaborador</h2>
+            <div class="table-container">
+              <table id="tablaDash">
+                <thead><tr><th>Colaborador</th><th>Total</th><th>Pendientes</th><th>Contactados</th></tr></thead>
+                <tbody id="tbodyDash"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal estado -->
+  <div class="modal-backdrop" id="modal">
+    <div class="modal">
+      <h3>Actualizar estado de llamada</h3>
+      <p class="subtitle" id="modalNombre"></p>
+      <div class="field">
+        <label>Estado</label>
+        <select id="modalEstado"></select>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>Notas</label>
+        <textarea id="modalNotas" placeholder="Observaciones de la llamada..."></textarea>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="guardarEstado()">💾 Guardar</button>
+        <button class="btn btn-secondary" onclick="cerrarModal()">Cancelar</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarActual()">🗑 Eliminar</button>
+      </div>
+      <div class="actions" style="margin-top:8px;">
+        <a id="modalLlamar" class="btn btn-success btn-block" href="#" target="_blank">📞 Llamar ahora</a>
+        <a id="modalWhatsApp" class="btn btn-success btn-block" href="#" target="_blank" style="background:#25D366;">💬 WhatsApp</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // Force viewport on mobile
+    (function() {
+      var m = document.querySelector('meta[name=viewport]');
+      if (m) m.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no');
+    })();
+
+    let token = null;
+    let usuario = null;
+    try { token = sessionStorage.getItem('gestionToken') || null; } catch (e) { token = null; }
+    try { usuario = sessionStorage.getItem('gestionUsuario') || null; } catch (e) { usuario = null; }
+    let datos = [];
+    let meta = { estados: [], colaboradores: [] };
+    let filaActual = null;
+
+    function toast(msg, tipo) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show ' + (tipo || '');
+      setTimeout(() => t.className = 'toast', 3000);
+    }
+
+    function showTab(name) {
+      document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+      if (name === 'gestion' && token) { cargarMeta(); }
+    }
+    document.querySelectorAll('.tab[data-tab]').forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+    function showSubTab(name) {
+      document.querySelectorAll('.tab[data-subtab]').forEach(t => t.classList.toggle('active', t.dataset.subtab === name));
+      document.querySelectorAll('.subpanel').forEach(p => p.classList.toggle('active', p.id === 'subpanel-' + name));
+      if (name === 'listado') cargarDatos();
+      if (name === 'dashboard') cargarDashboard();
+    }
+    document.querySelectorAll('.tab[data-subtab]').forEach(t => t.addEventListener('click', () => showSubTab(t.dataset.subtab)));
+
+    // ---- UJIER ----
+    function limpiarUjier() {
+      ['u-nombre','u-telefono','u-direccion','u-puntoReferencia','u-colaborador'].forEach(id => document.getElementById(id).value = '');
+    }
+    function guardarUjier() {
+      const data = {
+        nombre: document.getElementById('u-nombre').value,
+        telefono: document.getElementById('u-telefono').value,
+        direccion: document.getElementById('u-direccion').value,
+        puntoReferencia: document.getElementById('u-puntoReferencia').value,
+        colaborador: document.getElementById('u-colaborador').value
+      };
+      if (!data.nombre.trim() || !data.telefono.trim()) {
+        toast('Nombre y teléfono son obligatorios', 'error'); return;
+      }
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res && res.ok) { toast('Registro guardado correctamente', 'success'); limpiarUjier(); }
+          else toast((res && res.error) || 'Error al guardar', 'error');
+        })
+        .withFailureHandler(err => toast('Error: ' + err.message, 'error'))
+        .registrarAsistente(data);
+    }
+
+    // ---- GESTION auth ----
+    function actualizarVistaGestion() {
+      if (token) {
+        document.getElementById('gestion-login').classList.add('hidden');
+        document.getElementById('gestion-app').classList.remove('hidden');
+        document.getElementById('gestionUsuario').textContent = '👤 ' + (usuario || '');
+        cargarMeta();
+        cargarDatos();
+      } else {
+        document.getElementById('gestion-login').classList.remove('hidden');
+        document.getElementById('gestion-app').classList.add('hidden');
+      }
+    }
+    function loginGestion() {
+      const u = document.getElementById('g-usuario').value;
+      const p = document.getElementById('g-password').value;
+      if (!u.trim() || !p.trim()) { toast('Usuario y contraseña son obligatorios', 'error'); return; }
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res && res.ok) {
+            token = res.token;
+            usuario = res.usuario;
+            try { sessionStorage.setItem('gestionToken', token); } catch (e) {}
+            try { sessionStorage.setItem('gestionUsuario', usuario); } catch (e) {}
+            toast('Bienvenido, ' + usuario, 'success');
+            actualizarVistaGestion();
+          } else {
+            toast((res && res.error) || 'Error al ingresar', 'error');
+          }
+        })
+        .withFailureHandler(err => toast('Error: ' + err.message, 'error'))
+        .login(u, p);
+    }
+    function logoutGestion() {
+      if (token) { google.script.run.logout(token); }
+      token = null;
+      usuario = null;
+      try { sessionStorage.removeItem('gestionToken'); } catch (e) {}
+      try { sessionStorage.removeItem('gestionUsuario'); } catch (e) {}
+      actualizarVistaGestion();
+      toast('Sesión cerrada', 'success');
+    }
+    if (token) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res && res.ok) { actualizarVistaGestion(); }
+          else { token = null; usuario = null; try { sessionStorage.clear(); } catch (e) {} actualizarVistaGestion(); }
+        })
+        .withFailureHandler(() => { token = null; usuario = null; try { sessionStorage.clear(); } catch (e) {} actualizarVistaGestion(); })
+        .verificarTokenInfo(token);
+    } else {
+      actualizarVistaGestion();
+    }
+
+    // ---- GESTION data ----
+    function cargarMeta() {
+      if (!token) return;
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res && res.ok) {
+            meta = res;
+            const sel = document.getElementById('modalEstado');
+            if (sel) sel.innerHTML = meta.estados.map(e => '<option value="' + e + '">' + e + '</option>').join('');
+            const filtro = document.getElementById('filtroEstado');
+            if (filtro) {
+              const cur = filtro.value;
+              filtro.innerHTML = '<option value="">Todos los estados</option>' + meta.estados.map(e => '<option value="' + e + '">' + e + '</option>').join('');
+              filtro.value = cur;
+            }
+            const fc = document.getElementById('filtroColab');
+            if (fc) {
+              const curC = fc.value;
+              fc.innerHTML = '<option value="">Todos los colaboradores</option>' + meta.colaboradores.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+              fc.value = curC;
+            }
+          } else if (res && !res.ok) {
+            toast((res && res.error) || 'Sesión expirada', 'error');
+            logoutGestion();
+          }
+        })
+        .withFailureHandler(err => toast('Error: ' + err.message, 'error'))
+        .obtenerMeta(token);
+    }
+
+    function cargarDatos() {
+      if (!token) return;
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res && res.ok) {
+            datos = res.data;
+            renderTabla();
+            renderStats();
+          } else toast((res && res.error) || 'Error', 'error');
+        })
+        .withFailureHandler(err => toast('Error: ' + err.message, 'error'))
+        .listarAsistentes(token);
+    }
+
+    function badgeClass(estado) {
+      const key = (estado || '').toLowerCase().replace(/\s+/g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return 'badge badge-' + key;
+    }
+
+    function renderTabla() {
+      const q = (document.getElementById('buscar') ? document.getElementById('buscar').value : '').toLowerCase();
+      const fe = document.getElementById('filtroEstado') ? document.getElementById('filtroEstado').value : '';
+      const fc = document.getElementById('filtroColab') ? document.getElementById('filtroColab').value : '';
+      const filtrados = datos.filter(d => {
+        const texto = (d.nombre + ' ' + d.telefono + ' ' + d.direccion + ' ' + d.puntoReferencia + ' ' + d.colaborador).toLowerCase();
+        if (q && !texto.includes(q)) return false;
+        if (fe && d.estado !== fe) return false;
+        if (fc && d.colaborador !== fc) return false;
+        return true;
+      });
+      const tbody = document.getElementById('tbody');
+      if (!tbody) return;
+      tbody.innerHTML = filtrados.map(d => `
+        <tr>
+          <td>${d.fecha}</td>
+          <td class="name-cell">${escapeHtml(d.nombre)}</td>
+          <td>${escapeHtml(d.telefono)}</td>
+          <td>${escapeHtml(d.direccion)}</td>
+          <td>${escapeHtml(d.puntoReferencia)}</td>
+          <td>${escapeHtml(d.colaborador)}</td>
+          <td><span class="${badgeClass(d.estado)}">${escapeHtml(d.estado)}</span></td>
+          <td>
+            <div class="row-actions">
+              <a class="btn btn-secondary btn-sm" href="tel:${escapeHtml(d.telefono)}" onclick="abrirModal(${d.row}); return true;">📞 Llamar</a>
+              <a class="btn btn-success btn-sm" href="https://wa.me/57${escapeHtml(String(d.telefono).replace(/\\D/g,''))}?text=${encodeURIComponent('Hola ' + d.nombre + ', te saludamos desde el Call Center DFP Malambo.')}" target="_blank" rel="noopener">💬 WhatsApp</a>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+      const empty = document.getElementById('empty');
+      if (empty) empty.classList.toggle('hidden', filtrados.length > 0);
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function renderStats() {
+      const total = datos.length;
+      const pend = datos.filter(d => d.estado === 'Pendiente').length;
+      const cont = datos.filter(d => d.estado === 'Contactado').length;
+      const nocont = datos.filter(d => d.estado === 'No contestó').length;
+      const stats = document.getElementById('stats');
+      if (!stats) return;
+      stats.innerHTML = `
+        <div class="stat"><div class="num">${total}</div><div class="lbl">Total registrados</div></div>
+        <div class="stat"><div class="num">${pend}</div><div class="lbl">Pendientes</div></div>
+        <div class="stat"><div class="num">${cont}</div><div class="lbl">Contactados</div></div>
+        <div class="stat"><div class="num">${nocont}</div><div class="lbl">No contestaron</div></div>
+      `;
+    }
+
+    function abrirModal(row) {
+      filaActual = row;
+      const d = datos.find(x => x.row === row);
+      document.getElementById('modalNombre').textContent = d ? d.nombre + ' · ' + d.telefono : '';
+      document.getElementById('modalEstado').value = d ? d.estado : 'Pendiente';
+      document.getElementById('modalNotas').value = d ? d.notas : '';
+      if (d) {
+        const link = document.getElementById('modalLlamar');
+        link.href = 'tel:' + d.telefono;
+        link.textContent = '📞 Llamar a ' + d.telefono;
+        const wa = document.getElementById('modalWhatsApp');
+        wa.href = 'https://wa.me/57' + String(d.telefono).replace(/\\D/g,'') + '?text=' + encodeURIComponent('Hola ' + d.nombre + ', te saludamos desde el Call Center DFP Malambo.');
+        wa.textContent = '💬 WhatsApp a ' + d.telefono;
+      }
+      document.getElementById('modal').classList.add('show');
+    }
+    function cerrarModal() {
+      document.getElementById('modal').classList.remove('show');
+      filaActual = null;
+    }
+
+    function guardarEstado() {
+      if (!filaActual || !token) return;
+      const estado = document.getElementById('modalEstado').value;
+      const notas = document.getElementById('modalNotas').value;
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res && res.ok) { toast('Estado actualizado', 'success'); cerrarModal(); cargarDatos(); }
+          else toast((res && res.error) || 'Error', 'error');
+        })
+        .withFailureHandler(err => toast('Error: ' + err.message, 'error'))
+        .actualizarEstado(token, filaActual, estado, notas);
+    }
+
+    function eliminarActual() {
+      if (!filaActual || !token) return;
+      if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res && res.ok) { toast('Registro eliminado', 'success'); cerrarModal(); cargarDatos(); }
+          else toast((res && res.error) || 'Error', 'error');
+        })
+        .withFailureHandler(err => toast('Error: ' + err.message, 'error'))
+        .eliminarRegistro(token, filaActual);
+    }
+
+    function cargarDashboard() {
+      if (!token) return;
+      google.script.run
+        .withSuccessHandler(res => {
+          if (!res || !res.ok) return;
+          const agg = {};
+          res.data.forEach(d => {
+            const c = d.colaborador || '(Sin colaborador)';
+            if (!agg[c]) agg[c] = { total: 0, pend: 0, cont: 0 };
+            agg[c].total++;
+            if (d.estado === 'Pendiente') agg[c].pend++;
+            if (d.estado === 'Contactado') agg[c].cont++;
+          });
+          const tbody = document.getElementById('tbodyDash');
+          if (!tbody) return;
+          tbody.innerHTML = Object.keys(agg).sort().map(c => `
+            <tr>
+              <td><strong>${escapeHtml(c)}</strong></td>
+              <td>${agg[c].total}</td>
+              <td>${agg[c].pend}</td>
+              <td>${agg[c].cont}</td>
+            </tr>
+          `).join('') || '<tr><td colspan="4" class="empty">Sin datos</td></tr>';
+        })
+        .withFailureHandler(err => toast('Error: ' + err.message, 'error'))
+        .listarAsistentes(token);
+    }
+
+    ['buscar','filtroEstado','filtroColab'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', renderTabla);
+        el.addEventListener('change', renderTabla);
+      }
+    });
+  </script>
+</body>
+</html>
