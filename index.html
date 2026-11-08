@@ -9,7 +9,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     :root { --primary: #4f46e5; --primary-dark: #4338ca; --primary-light: #6366f1; --accent: #f59e0b; --accent-soft: #fef3c7; --bg: #f8fafc; --bg-2: #f1f5f9; --card: #ffffff; --text: #0f172a; --text-2: #334155; --muted: #64748b; --border: #e2e8f0; --border-light: #f1f5f9; --success: #10b981; --success-soft: #d1fae5; --warning: #f59e0b; --warning-soft: #fef3c7; --danger: #ef4444; --danger-soft: #fee2e2; --info: #3b82f6; --info-soft: #dbeafe; --purple: #8b5cf6; --purple-soft: #ede9fe; --radius: 18px; --radius-sm: 12px; --radius-xs: 8px; --shadow: 0 1px 3px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.04); --shadow-md: 0 4px 20px rgba(15,23,42,.08); --shadow-lg: 0 12px 40px rgba(15,23,42,.12); }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
@@ -120,7 +119,7 @@
 
   <div class="container">
     <div id="config-banner" class="config-banner hidden">
-      ⚠️ Configura el SPREADSHEET_ID en el código fuente antes de usar.
+      ⚠️ Configura el WEB_APP_URL en el código fuente antes de usar.
     </div>
 
     <div class="tabs">
@@ -167,15 +166,22 @@
       <div class="card login-card" id="gestion-login">
         <h2>Ingreso a Gestión</h2>
         <p class="subtitle">Acceso restringido para gestión de datos</p>
-        <div style="display:flex;justify-content:center;margin:20px 0;">
-          <button class="signin-btn" onclick="signIn()">
-            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-            Iniciar sesión con Google
-          </button>
+        <div class="form-grid">
+          <div class="field">
+            <label>Usuario</label>
+            <input type="text" id="g-usuario" placeholder="usuario" autocomplete="username">
+          </div>
+          <div class="field">
+            <label>Contraseña</label>
+            <input type="password" id="g-password" placeholder="••••••" autocomplete="current-password">
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary btn-block" onclick="loginGestion()">Ingresar</button>
         </div>
         <div class="login-hint">
-          Inicia sesión con tu cuenta de Google.<br>
-          El acceso se controla compartiendo la hoja de Google Sheets.
+          Usuario por defecto: <strong>admin</strong> / <strong>admin123</strong>.<br>
+          Puedes agregar más usuarios en la hoja "Usuarios" del Spreadsheet.
         </div>
       </div>
 
@@ -261,175 +267,89 @@
 
   <script>
     // ============ CONFIGURACION ============
-    const CLIENT_ID = '706076322033-hn92mn1eo5lk8v1s8i8gqb7e3ckmhiih.apps.googleusercontent.com';
-    const SPREADSHEET_ID = '1oqpaEW4XJoNcz5_JBOgMJF7n8BeTtR2ySM2TjKhdVec';
+    // Pega aquí la URL del Web App de Apps Script (Implementar -> Nueva implementación -> Aplicación web)
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxdKxOnozts1HD0numgKdsB6KT69RParK5WmIX_Vy3p4I0Xq3b_IBDkix_1-UYlK3R_Rw/exec';
     // ======================================
 
-    let accessToken = null;
     let token = null;
     let usuario = null;
     let datos = [];
     let meta = { estados: [], colaboradores: [] };
     let filaActual = null;
 
-    // ---- AUTH (Google OAuth) ----
-    let tokenClient;
-    let tokenResolver = null;
-    function initAuth() {
-      if (typeof google === 'undefined' || !google.accounts) { setTimeout(initAuth, 500); return; }
-      tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: 'https://www.googleapis.com/auth/spreadsheets openid email',
-        callback: (response) => {
-          if (response.access_token) {
-            accessToken = response.access_token;
-            token = accessToken;
-            if (tokenResolver) {
-              const r = tokenResolver;
-              tokenResolver = null;
-              r.resolve(response.access_token);
-            } else {
-              onSignedIn();
-            }
-          } else {
-            toast('Error de autenticación', 'error');
-            if (tokenResolver) {
-              const r = tokenResolver;
-              tokenResolver = null;
-              r.reject(new Error((response && response.error) || 'Autenticación cancelada'));
-            }
-          }
-        }
+    function configOk() { return !!WEB_APP_URL; }
+
+    async function api(payload) {
+      if (!configOk()) throw new Error('Configura WEB_APP_URL en el código fuente antes de usar.');
+      const res = await fetch(WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload || {})
       });
-    }
-    function signIn() { if (!tokenClient) initAuth(); tokenClient.requestAccessToken(); }
-    function ensureAccessToken() {
-      if (accessToken) return Promise.resolve(accessToken);
-      return new Promise((resolve, reject) => {
-        if (!tokenClient) initAuth();
-        if (!tokenClient) { setTimeout(() => { ensureAccessToken().then(resolve).catch(reject); }, 600); return; }
-        tokenResolver = { resolve, reject };
-        try { tokenClient.requestAccessToken(); }
-        catch (e) { tokenResolver = null; reject(e); }
-      });
-    }
-    function logoutGestion() {
-      accessToken = null; token = null; usuario = null;
-      document.getElementById('gestion-login').classList.remove('hidden');
-      document.getElementById('gestion-app').classList.add('hidden');
-      toast('Sesión cerrada', 'success');
+      let data = {};
+      try { data = await res.json(); } catch (e) { data = {}; }
+      if (data && data.error) throw new Error(data.error);
+      return data;
     }
 
-    async function onSignedIn() {
+    function restoreSession() {
       try {
-        let email = '';
-        try { email = await getGoogleEmail(); } catch (e) { email = ''; }
-        usuario = email || 'Usuario';
-        token = accessToken;
+        const t = sessionStorage.getItem('gestionToken');
+        const u = sessionStorage.getItem('gestionUsuario');
+        if (t) { token = t; usuario = u || ''; }
+      } catch (e) {}
+    }
+
+    async function verificarSesion() {
+      if (!token) return false;
+      try {
+        const res = await api({ action: 'verificarToken', token });
+        if (res && res.ok) { usuario = res.usuario || usuario; return true; }
+      } catch (e) {}
+      token = null; usuario = null;
+      try { sessionStorage.removeItem('gestionToken'); sessionStorage.removeItem('gestionUsuario'); } catch (e) {}
+      return false;
+    }
+
+    function actualizarVistaGestion() {
+      if (token) {
         document.getElementById('gestion-login').classList.add('hidden');
         document.getElementById('gestion-app').classList.remove('hidden');
         document.getElementById('gestionUsuario').textContent = '👤 ' + (usuario || '');
-        await cargarMeta();
-        await cargarDatos();
+        cargarMeta();
+        cargarDatos();
+      } else {
+        document.getElementById('gestion-login').classList.remove('hidden');
+        document.getElementById('gestion-app').classList.add('hidden');
+      }
+    }
+
+    async function loginGestion() {
+      const u = document.getElementById('g-usuario').value;
+      const p = document.getElementById('g-password').value;
+      if (!u.trim() || !p.trim()) { toast('Usuario y contraseña son obligatorios', 'error'); return; }
+      try {
+        const res = await api({ action: 'login', usuario: u, password: p });
+        if (res && res.ok) {
+          token = res.token;
+          usuario = res.usuario;
+          try { sessionStorage.setItem('gestionToken', token); sessionStorage.setItem('gestionUsuario', usuario); } catch (e) {}
+          toast('Bienvenido, ' + usuario, 'success');
+          actualizarVistaGestion();
+        } else {
+          toast((res && res.error) || 'Error al ingresar', 'error');
+        }
       } catch (e) {
         toast('Error: ' + e.message, 'error');
       }
     }
 
-    async function getGoogleEmail() {
-      try {
-        const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { 'Authorization': 'Bearer ' + accessToken }
-        });
-        const data = await res.json();
-        return (data && data.email) || '';
-      } catch (e) {
-        return '';
-      }
-    }
-
-    // ---- SHEETS API HELPERS ----
-    function sheetBase() { return `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}`; }
-    function authHeaders(extra) {
-      const h = Object.assign({}, extra || {});
-      delete h.Authorization;
-      delete h.authorization;
-      h['Authorization'] = 'Bearer ' + (accessToken || '');
-      return h;
-    }
-    async function sheetsFetch(url, options) {
-      options = options || {};
-      options.headers = authHeaders(options.headers || {});
-      let res = await fetch(url, options);
-      let data = null;
-      try { data = await res.json(); } catch (e) { data = {}; }
-      const invalid = res.status === 401 || (data && data.error && /invalid authentication|unauthorized|UNAUTHENTICATED|401/i.test(String(data.error.message || data.error.status || '')));
-      if (invalid) {
-        accessToken = null; token = null;
-        try { await ensureAccessToken(); } catch (e) { throw e; }
-        options.headers = authHeaders(options.headers || {});
-        // rebuild authorization only
-        options.headers['Authorization'] = 'Bearer ' + accessToken;
-        res = await fetch(url, options);
-        try { data = await res.json(); } catch (e) { data = {}; }
-      }
-      return { res, data };
-    }
-
-    async function sheetsGet(range) {
-      await ensureAccessToken();
-      const url = `${sheetBase()}/values/${encodeURIComponent(range)}`;
-      const { data } = await sheetsFetch(url, { headers: { 'Content-Type': 'application/json' } });
-      if (data.error) throw new Error(data.error.message);
-      return data.values || [];
-    }
-
-    async function sheetsAppend(range, values) {
-      await ensureAccessToken();
-      const url = `${sheetBase()}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`;
-      const { data } = await sheetsFetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values })
-      });
-      if (data.error) throw new Error(data.error.message);
-      return data;
-    }
-
-    async function sheetsUpdate(range, values) {
-      await ensureAccessToken();
-      const url = `${sheetBase()}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
-      const { data } = await sheetsFetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values })
-      });
-      if (data.error) throw new Error(data.error.message);
-      return data;
-    }
-
-    async function sheetsDeleteRow(sheetName, rowIndex) {
-      await ensureAccessToken();
-      const metaUrl = `${sheetBase()}?fields=sheets.properties`;
-      const metaFetch = await sheetsFetch(metaUrl, { headers: { 'Content-Type': 'application/json' } });
-      const metaData = metaFetch.data;
-      const sheet = (metaData.sheets || []).find(s => s.properties.title === sheetName);
-      if (!sheet) throw new Error('Hoja no encontrada: ' + sheetName);
-      const sheetId = sheet.properties.sheetId;
-      const url = `${sheetBase()}:batchUpdate`;
-      const { data } = await sheetsFetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requests: [{
-            deleteDimension: {
-              range: { sheetId, dimension: 'ROWS', startIndex: rowIndex - 1, endIndex: rowIndex }
-            }
-          }]
-        })
-      });
-      if (data.error) throw new Error(data.error.message);
-      return data;
+    async function logoutGestion() {
+      if (token) { try { await api({ action: 'logout', token }); } catch (e) {} }
+      token = null; usuario = null;
+      try { sessionStorage.removeItem('gestionToken'); sessionStorage.removeItem('gestionUsuario'); } catch (e) {}
+      actualizarVistaGestion();
+      toast('Sesión cerrada', 'success');
     }
 
     // ---- TABS ----
@@ -446,7 +366,10 @@
 
     // ---- UJIER ----
     function limpiarUjier() {
-      ['u-nombre','u-telefono','u-direccion','u-puntoReferencia','u-colaborador'].forEach(id => document.getElementById(id).value = '');
+      ['u-nombre','u-telefono','u-direccion','u-puntoReferencia','u-colaborador'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
     }
     async function guardarUjier() {
       const data = {
@@ -460,14 +383,13 @@
         toast('Nombre y teléfono son obligatorios', 'error'); return;
       }
       try {
-        await ensureAccessToken();
-        const fecha = new Date().toLocaleString('es-CO');
-        await sheetsAppend('Hoja 1!A:I', [[
-          fecha, data.nombre.trim(), data.direccion.trim(), data.telefono.trim(),
-          data.puntoReferencia.trim(), data.colaborador.trim(), 'Pendiente', '', ''
-        ]]);
-        toast('Registro guardado correctamente', 'success');
-        limpiarUjier();
+        const res = await api({ action: 'registrar', data });
+        if (res && res.ok) {
+          toast('Registro guardado correctamente', 'success');
+          limpiarUjier();
+        } else {
+          toast((res && res.error) || 'Error al guardar', 'error');
+        }
       } catch (e) {
         toast('Error: ' + e.message, 'error');
       }
@@ -475,28 +397,27 @@
 
     // ---- GESTION ----
     async function cargarMeta() {
-      if (!accessToken) { try { await ensureAccessToken(); } catch (e) { toast('Error: ' + e.message, 'error'); return; } }
+      if (!token) return;
       try {
-        const rows = await sheetsGet('Hoja 1!A:I');
-        const colaboradores = new Set();
-        for (let i = 1; i < rows.length; i++) {
-          const c = (rows[i][5] || '').trim();
-          if (c) colaboradores.add(c);
-        }
-        meta = { estados: ['Pendiente', 'Contactado', 'No contestó', 'Número inválido', 'No interesa'], colaboradores: [...colaboradores].sort() };
-        const sel = document.getElementById('modalEstado');
-        if (sel) sel.innerHTML = meta.estados.map(e => `<option value="${e}">${e}</option>`).join('');
-        const filtro = document.getElementById('filtroEstado');
-        if (filtro) {
-          const cur = filtro.value;
-          filtro.innerHTML = '<option value="">Todos los estados</option>' + meta.estados.map(e => `<option value="${e}">${e}</option>`).join('');
-          filtro.value = cur;
-        }
-        const fc = document.getElementById('filtroColab');
-        if (fc) {
-          const curC = fc.value;
-          fc.innerHTML = '<option value="">Todos los colaboradores</option>' + meta.colaboradores.map(c => `<option value="${c}">${c}</option>`).join('');
-          fc.value = curC;
+        const res = await api({ action: 'meta', token });
+        if (res && res.ok) {
+          meta = { estados: res.estados || [], colaboradores: res.colaboradores || [] };
+          const sel = document.getElementById('modalEstado');
+          if (sel) sel.innerHTML = meta.estados.map(e => `<option value="${e}">${e}</option>`).join('');
+          const filtro = document.getElementById('filtroEstado');
+          if (filtro) {
+            const cur = filtro.value;
+            filtro.innerHTML = '<option value="">Todos los estados</option>' + meta.estados.map(e => `<option value="${e}">${e}</option>`).join('');
+            filtro.value = cur;
+          }
+          const fc = document.getElementById('filtroColab');
+          if (fc) {
+            const curC = fc.value;
+            fc.innerHTML = '<option value="">Todos los colaboradores</option>' + meta.colaboradores.map(c => `<option value="${c}">${c}</option>`).join('');
+            fc.value = curC;
+          }
+        } else {
+          toast((res && res.error) || 'Error al cargar meta', 'error');
         }
       } catch (e) {
         toast('Error: ' + e.message, 'error');
@@ -504,24 +425,17 @@
     }
 
     async function cargarDatos() {
-      if (!accessToken) { try { await ensureAccessToken(); } catch (e) { return; } }
-      if (!accessToken) return;
+      if (!token) return;
       try {
-        const rows = await sheetsGet('Hoja 1!A:I');
-        datos = rows.slice(1).map((r, i) => ({
-          row: i + 2,
-          fecha: r[0] || '',
-          nombre: r[1] || '',
-          direccion: r[2] || '',
-          telefono: String(r[3] || ''),
-          puntoReferencia: r[4] || '',
-          colaborador: r[5] || '',
-          estado: r[6] || 'Pendiente',
-          notas: r[7] || '',
-          ultimaLlamada: r[8] || ''
-        }));
-        renderTabla();
-        renderStats();
+        const res = await api({ action: 'listar', token });
+        if (res && res.ok) {
+          datos = res.data || [];
+          renderTabla();
+          renderStats();
+        } else {
+          toast((res && res.error) || 'Error al cargar datos', 'error');
+          if (res && /autorizad|sesi/i.test(res.error || '')) logoutGestion();
+        }
       } catch (e) {
         toast('Error: ' + e.message, 'error');
       }
@@ -604,3 +518,100 @@
     function cerrarModal() {
       document.getElementById('modal').classList.remove('show');
       filaActual = null;
+    }
+
+    async function guardarEstado() {
+      if (!filaActual || !token) return;
+      const estado = document.getElementById('modalEstado').value;
+      const notas = document.getElementById('modalNotas').value;
+      try {
+        const res = await api({ action: 'actualizar', token, row: filaActual, estado, notas });
+        if (res && res.ok) {
+          toast('Estado actualizado', 'success');
+          cerrarModal();
+          await cargarDatos();
+        } else {
+          toast((res && res.error) || 'Error', 'error');
+        }
+      } catch (e) {
+        toast('Error: ' + e.message, 'error');
+      }
+    }
+
+    async function eliminarActual() {
+      if (!filaActual || !token) return;
+      if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
+      try {
+        const res = await api({ action: 'eliminar', token, row: filaActual });
+        if (res && res.ok) {
+          toast('Registro eliminado', 'success');
+          cerrarModal();
+          await cargarDatos();
+        } else {
+          toast((res && res.error) || 'Error', 'error');
+        }
+      } catch (e) {
+        toast('Error: ' + e.message, 'error');
+      }
+    }
+
+    async function cargarDashboard() {
+      if (!token) return;
+      try {
+        const res = await api({ action: 'listar', token });
+        if (!(res && res.ok)) return;
+        const data = res.data || [];
+        const agg = {};
+        data.forEach(d => {
+          const c = d.colaborador || '(Sin colaborador)';
+          if (!agg[c]) agg[c] = { total: 0, pend: 0, cont: 0 };
+          agg[c].total++;
+          if (d.estado === 'Pendiente') agg[c].pend++;
+          if (d.estado === 'Contactado') agg[c].cont++;
+        });
+        const tbody = document.getElementById('tbodyDash');
+        if (!tbody) return;
+        tbody.innerHTML = Object.keys(agg).sort().map(c => `
+          <tr>
+            <td><strong>${escapeHtml(c)}</strong></td>
+            <td>${agg[c].total}</td>
+            <td>${agg[c].pend}</td>
+            <td>${agg[c].cont}</td>
+          </tr>
+        `).join('') || '<tr><td colspan="4" class="empty">Sin datos</td></tr>';
+      } catch (e) {
+        toast('Error: ' + e.message, 'error');
+      }
+    }
+
+    function toast(msg, tipo) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show ' + (tipo || '');
+      setTimeout(() => t.className = 'toast', 3000);
+    }
+
+    // ---- INIT ----
+    window.addEventListener('load', async () => {
+      if (!configOk()) {
+        const b = document.getElementById('config-banner');
+        if (b) { b.classList.remove('hidden'); b.textContent = '⚠️ Configura el WEB_APP_URL en el código fuente antes de usar.'; }
+      }
+      restoreSession();
+      const ok = await verificarSesion();
+      if (ok) actualizarVistaGestion();
+      else {
+        document.getElementById('gestion-login').classList.remove('hidden');
+        document.getElementById('gestion-app').classList.add('hidden');
+      }
+      ['buscar','filtroEstado','filtroColab'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('input', renderTabla);
+          el.addEventListener('change', renderTabla);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
