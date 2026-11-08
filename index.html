@@ -174,8 +174,8 @@
           </button>
         </div>
         <div class="login-hint">
-          Inicia sesión con tu cuenta de Google autorizada.<br>
-          El acceso se verifica contra la hoja "Usuarios" del Spreadsheet.
+          Inicia sesión con tu cuenta de Google.<br>
+          El acceso se controla compartiendo la hoja de Google Sheets.
         </div>
       </div>
 
@@ -274,22 +274,45 @@
 
     // ---- AUTH (Google OAuth) ----
     let tokenClient;
+    let tokenResolver = null;
     function initAuth() {
       if (typeof google === 'undefined' || !google.accounts) { setTimeout(initAuth, 500); return; }
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
-        scope: 'https://www.googleapis.com/auth/spreadsheets',
+        scope: 'https://www.googleapis.com/auth/spreadsheets openid email',
         callback: (response) => {
           if (response.access_token) {
             accessToken = response.access_token;
-            onSignedIn();
+            token = accessToken;
+            if (tokenResolver) {
+              const r = tokenResolver;
+              tokenResolver = null;
+              r.resolve(response.access_token);
+            } else {
+              onSignedIn();
+            }
           } else {
             toast('Error de autenticación', 'error');
+            if (tokenResolver) {
+              const r = tokenResolver;
+              tokenResolver = null;
+              r.reject(new Error((response && response.error) || 'Autenticación cancelada'));
+            }
           }
         }
       });
     }
-    function signIn() { tokenClient.requestAccessToken(); }
+    function signIn() { if (!tokenClient) initAuth(); tokenClient.requestAccessToken(); }
+    function ensureAccessToken() {
+      if (accessToken) return Promise.resolve(accessToken);
+      return new Promise((resolve, reject) => {
+        if (!tokenClient) initAuth();
+        if (!tokenClient) { setTimeout(() => { ensureAccessToken().then(resolve).catch(reject); }, 600); return; }
+        tokenResolver = { resolve, reject };
+        try { tokenClient.requestAccessToken(); }
+        catch (e) { tokenResolver = null; reject(e); }
+      });
+    }
     function logoutGestion() {
       accessToken = null; token = null; usuario = null;
       document.getElementById('gestion-login').classList.remove('hidden');
@@ -299,8 +322,9 @@
 
     async function onSignedIn() {
       try {
-        const email = await getGoogleEmail();
-        usuario = email;
+        let email = '';
+        try { email = await getGoogleEmail(); } catch (e) { email = ''; }
+        usuario = email || 'Usuario';
         token = accessToken;
         document.getElementById('gestion-login').classList.add('hidden');
         document.getElementById('gestion-app').classList.remove('hidden');
@@ -313,60 +337,89 @@
     }
 
     async function getGoogleEmail() {
-      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { 'Authorization': 'Bearer ' + accessToken }
-      });
-      const data = await res.json();
-      return data.email || '';
+      try {
+        const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { 'Authorization': 'Bearer ' + accessToken }
+        });
+        const data = await res.json();
+        return (data && data.email) || '';
+      } catch (e) {
+        return '';
+      }
     }
 
     // ---- SHEETS API HELPERS ----
     function sheetBase() { return `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}`; }
+    function authHeaders(extra) {
+      const h = Object.assign({}, extra || {});
+      delete h.Authorization;
+      delete h.authorization;
+      h['Authorization'] = 'Bearer ' + (accessToken || '');
+      return h;
+    }
+    async function sheetsFetch(url, options) {
+      options = options || {};
+      options.headers = authHeaders(options.headers || {});
+      let res = await fetch(url, options);
+      let data = null;
+      try { data = await res.json(); } catch (e) { data = {}; }
+      const invalid = res.status === 401 || (data && data.error && /invalid authentication|unauthorized|UNAUTHENTICATED|401/i.test(String(data.error.message || data.error.status || '')));
+      if (invalid) {
+        accessToken = null; token = null;
+        try { await ensureAccessToken(); } catch (e) { throw e; }
+        options.headers = authHeaders(options.headers || {});
+        // rebuild authorization only
+        options.headers['Authorization'] = 'Bearer ' + accessToken;
+        res = await fetch(url, options);
+        try { data = await res.json(); } catch (e) { data = {}; }
+      }
+      return { res, data };
+    }
 
     async function sheetsGet(range) {
+      await ensureAccessToken();
       const url = `${sheetBase()}/values/${encodeURIComponent(range)}`;
-      const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + accessToken } });
-      const data = await res.json();
+      const { data } = await sheetsFetch(url, { headers: { 'Content-Type': 'application/json' } });
       if (data.error) throw new Error(data.error.message);
       return data.values || [];
     }
 
     async function sheetsAppend(range, values) {
+      await ensureAccessToken();
       const url = `${sheetBase()}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`;
-      const res = await fetch(url, {
+      const { data } = await sheetsFetch(url, {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ values })
       });
-      const data = await res.json();
       if (data.error) throw new Error(data.error.message);
       return data;
     }
 
     async function sheetsUpdate(range, values) {
+      await ensureAccessToken();
       const url = `${sheetBase()}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
-      const res = await fetch(url, {
+      const { data } = await sheetsFetch(url, {
         method: 'PUT',
-        headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ values })
       });
-      const data = await res.json();
       if (data.error) throw new Error(data.error.message);
       return data;
     }
 
     async function sheetsDeleteRow(sheetName, rowIndex) {
-      const metaRes = await fetch(`${sheetBase()}?fields=sheets.properties`, {
-        headers: { 'Authorization': 'Bearer ' + accessToken }
-      });
-      const metaData = await metaRes.json();
-      const sheet = metaData.sheets.find(s => s.properties.title === sheetName);
+      await ensureAccessToken();
+      const metaUrl = `${sheetBase()}?fields=sheets.properties`;
+      const metaFetch = await sheetsFetch(metaUrl, { headers: { 'Content-Type': 'application/json' } });
+      const metaData = metaFetch.data;
+      const sheet = (metaData.sheets || []).find(s => s.properties.title === sheetName);
       if (!sheet) throw new Error('Hoja no encontrada: ' + sheetName);
       const sheetId = sheet.properties.sheetId;
       const url = `${sheetBase()}:batchUpdate`;
-      const res = await fetch(url, {
+      const { data } = await sheetsFetch(url, {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           requests: [{
             deleteDimension: {
@@ -375,7 +428,6 @@
           }]
         })
       });
-      const data = await res.json();
       if (data.error) throw new Error(data.error.message);
       return data;
     }
@@ -408,6 +460,7 @@
         toast('Nombre y teléfono son obligatorios', 'error'); return;
       }
       try {
+        await ensureAccessToken();
         const fecha = new Date().toLocaleString('es-CO');
         await sheetsAppend('Hoja 1!A:I', [[
           fecha, data.nombre.trim(), data.direccion.trim(), data.telefono.trim(),
@@ -422,6 +475,7 @@
 
     // ---- GESTION ----
     async function cargarMeta() {
+      if (!accessToken) { try { await ensureAccessToken(); } catch (e) { toast('Error: ' + e.message, 'error'); return; } }
       try {
         const rows = await sheetsGet('Hoja 1!A:I');
         const colaboradores = new Set();
@@ -450,6 +504,7 @@
     }
 
     async function cargarDatos() {
+      if (!accessToken) { try { await ensureAccessToken(); } catch (e) { return; } }
       if (!accessToken) return;
       try {
         const rows = await sheetsGet('Hoja 1!A:I');
@@ -549,77 +604,3 @@
     function cerrarModal() {
       document.getElementById('modal').classList.remove('show');
       filaActual = null;
-    }
-
-    async function guardarEstado() {
-      if (!filaActual || !accessToken) return;
-      const estado = document.getElementById('modalEstado').value;
-      const notas = document.getElementById('modalNotas').value;
-      try {
-        await sheetsUpdate(`Hoja 1!G${filaActual}:I${filaActual}`, [[estado, notas, new Date().toLocaleString('es-CO')]]);
-        toast('Estado actualizado', 'success');
-        cerrarModal();
-        await cargarDatos();
-      } catch (e) {
-        toast('Error: ' + e.message, 'error');
-      }
-    }
-
-    async function eliminarActual() {
-      if (!filaActual || !accessToken) return;
-      if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
-      try {
-        await sheetsDeleteRow('Hoja 1', filaActual);
-        toast('Registro eliminado', 'success');
-        cerrarModal();
-        await cargarDatos();
-      } catch (e) {
-        toast('Error: ' + e.message, 'error');
-      }
-    }
-
-    async function cargarDashboard() {
-      if (!accessToken) return;
-      try {
-        const rows = await sheetsGet('Hoja 1!A:I');
-        const data = rows.slice(1).map(r => ({
-          colaborador: r[5] || '(Sin colaborador)',
-          estado: r[6] || 'Pendiente'
-        }));
-        const agg = {};
-        data.forEach(d => {
-          const c = d.colaborador;
-          if (!agg[c]) agg[c] = { total: 0, pend: 0, cont: 0 };
-          agg[c].total++;
-          if (d.estado === 'Pendiente') agg[c].pend++;
-          if (d.estado === 'Contactado') agg[c].cont++;
-        });
-        const tbody = document.getElementById('tbodyDash');
-        if (!tbody) return;
-        tbody.innerHTML = Object.keys(agg).sort().map(c => `
-          <tr>
-            <td><strong>${escapeHtml(c)}</strong></td>
-            <td>${agg[c].total}</td>
-            <td>${agg[c].pend}</td>
-            <td>${agg[c].cont}</td>
-          </tr>
-        `).join('') || '<tr><td colspan="4" class="empty">Sin datos</td></tr>';
-      } catch (e) {
-        toast('Error: ' + e.message, 'error');
-      }
-    }
-
-    function toast(msg, tipo) {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.className = 'toast show ' + (tipo || '');
-      setTimeout(() => t.className = 'toast', 3000);
-    }
-
-    // ---- INIT ----
-    window.addEventListener('load', () => {
-      initAuth();
-    });
-  </script>
-</body>
-</html>
