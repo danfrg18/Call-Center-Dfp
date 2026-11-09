@@ -540,9 +540,7 @@
     }
 
     function cleanPhone(tel) {
-      let d = String(tel || '').replace(/\\D/g, '');
-      if (d.indexOf('57') === 0 && (d.length === 12 || d.length === 9)) d = d.slice(2);
-      return d;
+      return String(tel || '').replace(/\\D/g, '');
     }
 
     function escapeHtml(s) {
