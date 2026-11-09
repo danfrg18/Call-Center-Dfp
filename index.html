@@ -77,7 +77,17 @@
     .badge-númeroinválido, .badge-numeroinvalido { background: #e5e7eb; color: #374151; }
     .badge-nointeresa { background: var(--purple-soft); color: #5b21b6; }
     .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
-    .toolbar input, .toolbar select { min-width: 0; flex: 1 1 140px; font-size: 17px; padding: 12px 14px; min-height: 50px; border-radius: var(--radius-xs); }
+    .toolbar select, .field select {
+      appearance: none; -webkit-appearance: none; -moz-appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23cbd5e1' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+      background-repeat: no-repeat; background-position: right 14px center; padding-right: 38px;
+      background-color: var(--bg-2); color: var(--text); border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); font-size: 17px; min-height: 50px; cursor: pointer;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .toolbar select:focus, .field select:focus {
+      outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(20,184,166,.15);
+    }
     .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .toast { position: fixed; bottom: 20px; left: 16px; right: 16px; padding: 14px 18px; background: #0f172a; color: #fff; border-radius: var(--radius-sm); font-size: 17px; font-weight: 500; box-shadow: var(--shadow-lg); opacity: 0; transform: translateY(20px); transition: all .3s cubic-bezier(.2,.8,.2,1); pointer-events: none; z-index: 9999; text-align: center; }
     @media (min-width: 640px) { .toast { left: auto; right: 20px; min-width: 300px; text-align: left; } }
@@ -261,22 +271,51 @@
       <h3>Detalle del registro</h3>
       <p class="subtitle" id="modalNombre"></p>
       <div id="modalDetalles" style="margin-bottom:14px;"></div>
-      <div class="field">
-        <label>Estado</label>
-        <select id="modalEstado"></select>
+      <div id="modalEdit" class="hidden" style="display:grid;gap:10px;margin-bottom:14px;">
+        <div class="field">
+          <label>Nombre y apellido</label>
+          <input type="text" id="editNombre">
+        </div>
+        <div class="field">
+          <label>Teléfono</label>
+          <input type="tel" id="editTelefono" inputmode="tel">
+        </div>
+        <div class="field">
+          <label>Dirección</label>
+          <input type="text" id="editDireccion">
+        </div>
+        <div class="field">
+          <label>Punto de referencia</label>
+          <input type="text" id="editPuntoReferencia">
+        </div>
+        <div class="field">
+          <label>Colaborador</label>
+          <input type="text" id="editColaborador">
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary btn-sm" onclick="guardarEdicion()">💾 Guardar cambios</button>
+          <button class="btn btn-secondary btn-sm" onclick="cancelarEdicion()">Cancelar</button>
+        </div>
       </div>
-      <div class="field" style="margin-top:12px;">
-        <label>Notas</label>
-        <textarea id="modalNotas" placeholder="Observaciones de la llamada..."></textarea>
-      </div>
-      <div class="actions">
-        <button class="btn btn-primary" onclick="guardarEstado()">💾 Guardar</button>
-        <button class="btn btn-secondary" onclick="cerrarModal()">Cancelar</button>
-        <button class="btn btn-danger btn-sm" onclick="eliminarActual()">🗑 Eliminar</button>
-      </div>
-      <div class="actions" style="margin-top:8px;">
-        <a id="modalLlamar" class="btn btn-success btn-block" href="#" target="_blank">📞 Llamar ahora</a>
-        <a id="modalWhatsApp" class="btn btn-success btn-block" href="#" target="_blank" style="background:#25D366;">💬 WhatsApp</a>
+      <div id="modalView">
+        <div class="field">
+          <label>Estado</label>
+          <select id="modalEstado"></select>
+        </div>
+        <div class="field" style="margin-top:12px;">
+          <label>Notas</label>
+          <textarea id="modalNotas" placeholder="Observaciones de la llamada..."></textarea>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" onclick="guardarEstado()">💾 Guardar estado</button>
+          <button class="btn btn-secondary" onclick="cerrarModal()">Cerrar</button>
+          <button class="btn btn-danger btn-sm" onclick="eliminarActual()">🗑 Eliminar</button>
+          <button class="btn btn-secondary btn-sm" onclick="activarEdicion()">✏️ Editar datos</button>
+        </div>
+        <div class="actions" style="margin-top:8px;">
+          <a id="modalLlamar" class="btn btn-success btn-block" href="#" target="_blank">📞 Llamar ahora</a>
+          <a id="modalWhatsApp" class="btn btn-success btn-block" href="#" target="_blank" style="background:#25D366;">💬 WhatsApp</a>
+        </div>
       </div>
     </div>
   </div>
@@ -527,6 +566,7 @@
 
     function abrirModal(row) {
       filaActual = row;
+      cancelarEdicion();
       const d = datos.find(x => x.row === row);
       document.getElementById('modalNombre').textContent = d ? d.nombre + ' · ' + d.telefono : '';
       document.getElementById('modalEstado').value = d ? d.estado : 'Pendiente';
@@ -554,6 +594,49 @@
       }
       document.getElementById('modal').classList.add('show');
     }
+    function activarEdicion() {
+      const d = datos.find(x => x.row === filaActual);
+      if (!d) return;
+      document.getElementById('editNombre').value = d.nombre || '';
+      document.getElementById('editTelefono').value = d.telefono || '';
+      document.getElementById('editDireccion').value = d.direccion || '';
+      document.getElementById('editPuntoReferencia').value = d.puntoReferencia || '';
+      document.getElementById('editColaborador').value = d.colaborador || '';
+      document.getElementById('modalDetalles').classList.add('hidden');
+      document.getElementById('modalView').classList.add('hidden');
+      document.getElementById('modalEdit').classList.remove('hidden');
+    }
+    function cancelarEdicion() {
+      document.getElementById('modalEdit').classList.add('hidden');
+      document.getElementById('modalDetalles').classList.remove('hidden');
+      document.getElementById('modalView').classList.remove('hidden');
+    }
+    async function guardarEdicion() {
+      if (!filaActual || !token) return;
+      const data = {
+        nombre: document.getElementById('editNombre').value,
+        telefono: document.getElementById('editTelefono').value,
+        direccion: document.getElementById('editDireccion').value,
+        puntoReferencia: document.getElementById('editPuntoReferencia').value,
+        colaborador: document.getElementById('editColaborador').value
+      };
+      if (!data.nombre.trim() || !data.telefono.trim()) {
+        toast('Nombre y teléfono son obligatorios', 'error'); return;
+      }
+      try {
+        const res = await api({ action: 'actualizarRegistro', token, row: filaActual, data });
+        if (res && res.ok) {
+          toast('Datos actualizados', 'success');
+          await cargarDatos();
+          abrirModal(filaActual);
+        } else {
+          toast((res && res.error) || 'Error', 'error');
+        }
+      } catch (e) {
+        toast('Error: ' + e.message, 'error');
+      }
+    }
+
     function cerrarModal() {
       document.getElementById('modal').classList.remove('show');
       filaActual = null;
