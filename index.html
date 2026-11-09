@@ -587,7 +587,7 @@
         link.href = 'tel:' + cleanPhone(d.telefono);
         link.textContent = '📞 Llamar a ' + d.telefono;
         const wa = document.getElementById('modalWhatsApp');
-        wa.href = 'https://wa.me/' + cleanPhone(d.telefono) + '?text=' + encodeURIComponent('Hola ' + d.nombre + ', te saludamos desde el Call Center DFP Malambo.');
+        wa.href = 'https://wa.me/57' + cleanPhone(d.telefono).replace(/^57/, '') + '?text=' + encodeURIComponent('Hola ' + d.nombre + ', te saludamos desde el Call Center DFP Malambo.');
         wa.textContent = '💬 WhatsApp a ' + d.telefono;
       }
       document.getElementById('modal').classList.add('show');
