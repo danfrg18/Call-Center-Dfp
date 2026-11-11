@@ -252,6 +252,8 @@
               <select id="filtroEstado"><option value="">Todos los estados</option></select>
               <select id="filtroColab"><option value="">Todos los colaboradores</option></select>
               <button class="btn btn-secondary btn-sm btn-icon" onclick="cargarDatos()" title="Actualizar">🔄</button>
+              <button class="btn btn-secondary btn-sm" onclick="generarInforme()">📄 Informe</button>
+              <button class="btn btn-secondary btn-sm" onclick="descargarInforme()">📄 Informe</button>
             </div>
             <div class="table-container">
               <table id="tabla">
@@ -1084,6 +1086,92 @@
       }
     }
 
+    async function descargarInforme() {
+      if (!token) return;
+      try {
+        const res = await api({ action: 'informe', token });
+        if (!(res && res.ok)) { toast((res && res.error) || 'Error', 'error'); return; }
+        const data = res.data || [];
+        const notas = res.notas || [];
+        const peticiones = res.peticiones || [];
+        const asistenteMap = {};
+        data.forEach(d => { if (d.id) asistenteMap[d.id] = d; });
+
+        const now = new Date();
+        const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        const mes = meses[now.getMonth()] + ' ' + now.getFullYear();
+
+        const total = data.length;
+        const pend = data.filter(d => d.estado === 'Pendiente').length;
+        const cont = data.filter(d => d.estado === 'Contactado').length;
+        const nocont = data.filter(d => d.estado === 'No contestó').length;
+        const numinv = data.filter(d => d.estado === 'N\u00famero inv\u00e1lido').length;
+        const noint = data.filter(d => d.estado === 'No interesa').length;
+
+        // Por colaborador
+        const agg = {};
+        data.forEach(d => {
+          const c = d.colaborador || '(Sin colaborador)';
+          if (!agg[c]) agg[c] = { total:0, pend:0, cont:0 };
+          agg[c].total++;
+          if (d.estado === 'Pendiente') agg[c].pend++;
+          if (d.estado === 'Contactado') agg[c].cont++;
+        });
+
+        let txt = '';
+        txt += 'INFORME DE LLAMADAS - MES DE ' + mes.toUpperCase() + '\n';
+        txt += '========================================\n\n';
+        txt += 'Total registrados: ' + total + '\n';
+        txt += 'Pendientes: ' + pend + '\n';
+        txt += 'Contactados: ' + cont + '\n';
+        txt += 'No contestaron: ' + nocont + '\n';
+        txt += 'Numero invalido: ' + numinv + '\n';
+        txt += 'No interesa: ' + noint + '\n\n';
+
+        txt += 'POR COLABORADOR (ujier):\n';
+        txt += '------------------------\n';
+        Object.keys(agg).sort().forEach(c => {
+          txt += '- ' + c + ': total ' + agg[c].total + ', pendientes ' + agg[c].pend + ', contactados ' + agg[c].cont + '\n';
+        });
+        txt += '\n';
+
+        txt += 'NOTAS REGISTRADAS:\n';
+        txt += '-----------------\n';
+        if (notas.length === 0) txt += '(Sin notas)\n';
+        notas.forEach(n => {
+          const d = asistenteMap[n.asistenteId];
+          const nombreAsis = d ? d.nombre : ('ID ' + n.asistenteId);
+          const tel = d ? d.telefono : '';
+          txt += '- ' + nombreAsis + (tel ? ' (' + tel + ')' : '') + ' [' + n.tipo + ', ' + n.fecha + ' por ' + n.nombre + ']: ' + n.nota + '\n';
+        });
+        txt += '\n';
+
+        txt += 'PETICIONES DE ORACION:\n';
+        txt += '---------------------\n';
+        if (peticiones.length === 0) txt += '(Sin peticiones)\n';
+        peticiones.forEach(p => {
+          const d = asistenteMap[p.asistenteId];
+          const nombreAsis = d ? d.nombre : ('ID ' + p.asistenteId);
+          txt += '- ' + nombreAsis + ' (' + p.fecha + ', por ' + p.nombre + '): ' + p.peticion + '\n';
+        });
+        txt += '\n';
+        txt += '--- Fin del informe ---\n';
+
+        const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'informe_llamadas_' + now.getFullYear() + '_' + String(now.getMonth()+1).padStart(2,'0') + '.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('Informe descargado', 'success');
+      } catch (e) {
+        toast('Error: ' + e.message, 'error');
+      }
+    }
+
     async function cargarDashboard() {
       if (!token) return;
       try {
@@ -1155,6 +1243,31 @@
             <td>${agg[c].cont}</td>
           </tr>
         `).join('') || '<tr><td colspan="4" class="empty">Sin datos</td></tr>';
+      } catch (e) {
+        toast('Error: ' + e.message, 'error');
+      }
+    }
+
+    async function generarInforme() {
+      if (!token) return;
+      const mes = prompt('Mes del informe (ej: Abril):', new Date().toLocaleString('es-CO', { month: 'long' }));
+      if (mes === null) return;
+      try {
+        const res = await api({ action: 'informe', token, mes });
+        if (res && res.ok && res.informe) {
+          const blob = new Blob([res.informe], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'informe_llamadas_' + (mes || 'mes') + '.txt';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          toast('Informe descargado', 'success');
+        } else {
+          toast((res && res.error) || 'Error al generar informe', 'error');
+        }
       } catch (e) {
         toast('Error: ' + e.message, 'error');
       }
