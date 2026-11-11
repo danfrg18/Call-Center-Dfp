@@ -706,7 +706,7 @@
         link.textContent = '📞 Llamar a ' + d.telefono;
         const wa = document.getElementById('modalWhatsApp');
         const remitente = (nombre || usuario || '').trim();
-        const msg = 'Buen dia, Dios te bendiga, un gusto saludarte\\nMi nombre es ' + remitente + ' Te escribo de parte de la Iglesia Dios Fuente De Poder.';
+        const msg = 'Buen dia, Dios te bendiga, un gusto saludarte\nMi nombre es ' + remitente + ' Te escribo de parte de la Iglesia Dios Fuente De Poder.';
         wa.href = 'https://wa.me/57' + cleanPhone(d.telefono).replace(/^57/, '') + '?text=' + encodeURIComponent(msg);
         wa.textContent = '💬 WhatsApp a ' + d.telefono;
         const chk = document.getElementById('chkPeticion');
