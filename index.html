@@ -43,6 +43,19 @@
     .field textarea { resize: vertical; min-height: 80px; font-size: 20px; }
     .btn { padding: 18px 22px; border: none; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600; font-size: 19px; transition: all .2s; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 62px; touch-action: manipulation; font-family: inherit; letter-spacing: .2px; text-decoration: none; }
     .btn:active { transform: scale(.97); }
+    .btn-busy { pointer-events: none; opacity: .75; }
+    .btn-busy::after {
+      content: ''; width: 16px; height: 16px; margin-left: 8px;
+      border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+      border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; vertical-align: middle;
+    }
+    .btn-done::after {
+      content: '✓'; margin-left: 8px; color: #22c55e; font-weight: 900; font-size: 20px;
+      display: inline-block; vertical-align: middle; animation: pop .35s ease;
+      text-shadow: 0 0 6px rgba(34,197,94,.6);
+    }
+    @keyframes pop { 0% { transform: scale(.6); opacity: .6; } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: #fff; box-shadow: 0 4px 16px rgba(79,70,229,.3); }
     .btn-primary:hover { box-shadow: 0 6px 24px rgba(79,70,229,.4); transform: translateY(-1px); }
     .btn-secondary { background: #475569; color: #f1f5f9; border: 1px solid #64748b; }
@@ -125,6 +138,15 @@
     .progress-bar.indeterminate .fill { width: 40%; animation: progMove 1.2s ease-in-out infinite; }
     @keyframes progMove { 0% { margin-left: 0%; } 50% { margin-left: 60%; } 100% { margin-left: 0%; } }
     .progress-label { font-size: 14px; color: var(--muted); margin-top: 6px; text-align: center; }
+    body.busy::before {
+      content: ''; position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 99999;
+      background: linear-gradient(90deg, transparent, var(--primary), var(--primary-light), var(--primary), transparent);
+      background-size: 200% 100%; animation: busybar 0.9s linear infinite;
+    }
+    @keyframes busybar { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .skeleton { height: 56px; border-radius: 10px; background: linear-gradient(90deg,#1e293b 25%,#334155 50%,#1e293b 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; margin-bottom: 8px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .fade-in { animation: fadeIn .35s ease; }
   </style>
 </head>
 <body>
@@ -348,30 +370,53 @@
 
     let token = null;
     let usuario = null;
+    let nombre = null;
     let datos = [];
     let meta = { estados: [], colaboradores: [] };
+    let notasCache = [];
+    let peticionesCache = [];
     let filaActual = null;
 
     function configOk() { return !!WEB_APP_URL; }
 
     async function api(payload) {
       if (!configOk()) throw new Error('Configura WEB_APP_URL en el código fuente antes de usar.');
-      const res = await fetch(WEB_APP_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload || {})
-      });
-      let data = {};
-      try { data = await res.json(); } catch (e) { data = {}; }
-      if (data && data.error) throw new Error(data.error);
-      return data;
+      const readActions = ['listar','meta','bootstrap','listarNotas','listarPeticiones','verificarToken'];
+      const isRead = readActions.includes((payload && payload.action) || '');
+      const btn = document.activeElement;
+      const useBtn = !isRead && !!(btn && (btn.tagName === 'BUTTON' || (btn.classList && btn.classList.contains('btn'))));
+      if (useBtn) btn.classList.add('btn-busy'); else if (!isRead) document.body.classList.add('busy');
+      try {
+        const res = await fetch(WEB_APP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload || {})
+        });
+        let data = {};
+        try { data = await res.json(); } catch (e) { data = {}; }
+        if (data && data.error) throw new Error(data.error);
+        // Mostrar chulito de éxito en el botón
+        if (useBtn) {
+          btn.classList.remove('btn-busy');
+          btn.classList.add('btn-done');
+          setTimeout(() => btn.classList.remove('btn-done'), 900);
+        }
+        return data;
+      } catch (e) {
+        if (useBtn) btn.classList.remove('btn-busy');
+        else document.body.classList.remove('busy');
+        throw e;
+      } finally {
+        if (!useBtn) document.body.classList.remove('busy');
+      }
     }
 
     function restoreSession() {
       try {
         const t = sessionStorage.getItem('gestionToken');
         const u = sessionStorage.getItem('gestionUsuario');
-        if (t) { token = t; usuario = u || ''; }
+        const n = sessionStorage.getItem('gestionNombre');
+        if (t) { token = t; usuario = u || ''; nombre = n || u || ''; }
       } catch (e) {}
     }
 
@@ -379,10 +424,10 @@
       if (!token) return false;
       try {
         const res = await api({ action: 'verificarToken', token });
-        if (res && res.ok) { usuario = res.usuario || usuario; return true; }
+        if (res && res.ok) { usuario = res.usuario || usuario; nombre = res.nombre || nombre || usuario; return true; }
       } catch (e) {}
-      token = null; usuario = null;
-      try { sessionStorage.removeItem('gestionToken'); sessionStorage.removeItem('gestionUsuario'); } catch (e) {}
+      token = null; usuario = null; nombre = null;
+      try { sessionStorage.removeItem('gestionToken'); sessionStorage.removeItem('gestionUsuario'); sessionStorage.removeItem('gestionNombre'); } catch (e) {}
       return false;
     }
 
@@ -390,9 +435,8 @@
       if (token) {
         document.getElementById('gestion-login').classList.add('hidden');
         document.getElementById('gestion-app').classList.remove('hidden');
-        document.getElementById('gestionUsuario').textContent = '👤 ' + (usuario || '');
-        cargarMeta();
-        cargarDatos();
+        document.getElementById('gestionUsuario').textContent = '👤 ' + (nombre || usuario || '');
+        bootstrapGestion();
       } else {
         document.getElementById('gestion-login').classList.remove('hidden');
         document.getElementById('gestion-app').classList.add('hidden');
@@ -403,30 +447,27 @@
       const u = document.getElementById('g-usuario').value;
       const p = document.getElementById('g-password').value;
       if (!u.trim() || !p.trim()) { toast('Usuario y contraseña son obligatorios', 'error'); return; }
-      const prog = document.getElementById('progLogin');
-      if (prog) prog.classList.add('show');
       try {
         const res = await api({ action: 'login', usuario: u, password: p });
         if (res && res.ok) {
           token = res.token;
           usuario = res.usuario;
-          try { sessionStorage.setItem('gestionToken', token); sessionStorage.setItem('gestionUsuario', usuario); } catch (e) {}
-          toast('Bienvenido, ' + usuario, 'success');
+          nombre = res.nombre || res.usuario;
+          try { sessionStorage.setItem('gestionToken', token); sessionStorage.setItem('gestionUsuario', usuario); sessionStorage.setItem('gestionNombre', nombre); } catch (e) {}
+          toast('Bienvenido, ' + (nombre || usuario), 'success');
           actualizarVistaGestion();
         } else {
           toast((res && res.error) || 'Error al ingresar', 'error');
         }
       } catch (e) {
         toast('Error: ' + e.message, 'error');
-      } finally {
-        if (prog) prog.classList.remove('show');
       }
     }
 
     async function logoutGestion() {
       if (token) { try { await api({ action: 'logout', token }); } catch (e) {} }
-      token = null; usuario = null;
-      try { sessionStorage.removeItem('gestionToken'); sessionStorage.removeItem('gestionUsuario'); } catch (e) {}
+      token = null; usuario = null; nombre = null;
+      try { sessionStorage.removeItem('gestionToken'); sessionStorage.removeItem('gestionUsuario'); sessionStorage.removeItem('gestionNombre'); } catch (e) {}
       actualizarVistaGestion();
       toast('Sesión cerrada', 'success');
     }
@@ -465,8 +506,6 @@
       if (!data.nombre.trim() || !data.telefono.trim()) {
         toast('Nombre y teléfono son obligatorios', 'error'); return;
       }
-      const prog = document.getElementById('progUjier');
-      if (prog) prog.classList.add('show');
       try {
         const res = await api({ action: 'registrar', data });
         if (res && res.ok) {
@@ -477,12 +516,72 @@
         }
       } catch (e) {
         toast('Error: ' + e.message, 'error');
-      } finally {
-        if (prog) prog.classList.remove('show');
       }
     }
 
     // ---- GESTION ----
+    async function bootstrapGestion() {
+      // Mostrar datos en caché inmediatamente (stale-while-revalidate)
+      try {
+        const cached = sessionStorage.getItem('gestionCache');
+        if (cached) {
+          const c = JSON.parse(cached);
+          if (c.meta) meta = c.meta;
+          if (c.data) datos = (c.data || []).sort((a, b) => (b.row || 0) - (a.row || 0));
+          const sel = document.getElementById('modalEstado');
+          if (sel && meta.estados) sel.innerHTML = meta.estados.map(e => `<option value="${e}">${e}</option>`).join('');
+          const filtro = document.getElementById('filtroEstado');
+          if (filtro && meta.estados) {
+            const cur = filtro.value;
+            filtro.innerHTML = '<option value="">Todos los estados</option>' + meta.estados.map(e => `<option value="${e}">${e}</option>`).join('');
+            filtro.value = cur;
+          }
+          const fc = document.getElementById('filtroColab');
+          if (fc && meta.colaboradores) {
+            const curC = fc.value;
+            fc.innerHTML = '<option value="">Todos los colaboradores</option>' + meta.colaboradores.map(c => `<option value="${c}">${c}</option>`).join('');
+            fc.value = curC;
+          }
+          renderTabla();
+          renderStats();
+        }
+      } catch (e) {}
+
+      try {
+        const res = await api({ action: 'bootstrap', token });
+        if (res && res.ok) {
+          if (res.meta && res.meta.ok) {
+            meta = { estados: res.meta.estados || [], colaboradores: res.meta.colaboradores || [] };
+            const sel = document.getElementById('modalEstado');
+            if (sel) sel.innerHTML = meta.estados.map(e => `<option value="${e}">${e}</option>`).join('');
+            const filtro = document.getElementById('filtroEstado');
+            if (filtro) {
+              const cur = filtro.value;
+              filtro.innerHTML = '<option value="">Todos los estados</option>' + meta.estados.map(e => `<option value="${e}">${e}</option>`).join('');
+              filtro.value = cur;
+            }
+            const fc = document.getElementById('filtroColab');
+            if (fc) {
+              const curC = fc.value;
+              fc.innerHTML = '<option value="">Todos los colaboradores</option>' + meta.colaboradores.map(c => `<option value="${c}">${c}</option>`).join('');
+              fc.value = curC;
+            }
+          }
+          datos = (res.data || []).sort((a, b) => (b.row || 0) - (a.row || 0));
+          renderTabla();
+          renderStats();
+          try { sessionStorage.setItem('gestionCache', JSON.stringify({ meta, data: datos })); } catch (e) {}
+        } else {
+          // Fallback si el backend no soporta bootstrap
+          await cargarMeta();
+          await cargarDatos();
+        }
+      } catch (e) {
+        await cargarMeta();
+        await cargarDatos();
+      }
+    }
+
     async function cargarMeta() {
       if (!token) return;
       try {
@@ -519,6 +618,7 @@
         datos = (res.data || []).sort((a, b) => (b.row || 0) - (a.row || 0));
           renderTabla();
           renderStats();
+          try { sessionStorage.setItem('gestionCache', JSON.stringify({ meta, data: datos })); } catch (e) {}
         } else {
           toast((res && res.error) || 'Error al cargar datos', 'error');
           if (res && /autorizad|sesi/i.test(res.error || '')) logoutGestion();
@@ -605,7 +705,9 @@
         link.href = 'tel:' + cleanPhone(d.telefono);
         link.textContent = '📞 Llamar a ' + d.telefono;
         const wa = document.getElementById('modalWhatsApp');
-        wa.href = 'https://wa.me/57' + cleanPhone(d.telefono).replace(/^57/, '') + '?text=' + encodeURIComponent('Hola ' + d.nombre + ', te saludamos desde el Call Center DFP Malambo.');
+        const remitente = (nombre || usuario || '').trim();
+        const msg = 'Buen dia, Dios te bendiga, un gusto saludarte\\nMi nombre es ' + remitente + ' Te escribo de parte de la Iglesia Dios Fuente De Poder.';
+        wa.href = 'https://wa.me/57' + cleanPhone(d.telefono).replace(/^57/, '') + '?text=' + encodeURIComponent(msg);
         wa.textContent = '💬 WhatsApp a ' + d.telefono;
         const chk = document.getElementById('chkPeticion');
         if (chk) chk.checked = !!d.peticionOracion;
@@ -705,41 +807,103 @@
       const d = datos.find(x => x.row === row);
       asistenteActualId = d ? (d.id || d.row) : null;
       if (!asistenteActualId) { toast('No se encontró el registro', 'error'); return; }
-      document.getElementById('modal2Body').innerHTML = '<div class="progress-wrap show"><div class="progress-bar indeterminate"><div class="fill"></div></div><div class="progress-label">Cargando notas...</div></div>';
       document.getElementById('modal2Actions').innerHTML = '';
-      abrirModal2('📝 Notas - ' + (d ? d.nombre : ''));
-      await renderNotas();
-    }
-
-    async function renderNotas() {
-      const body = document.getElementById('modal2Body');
-      const actions = document.getElementById('modal2Actions');
-      try {
-        const res = await api({ action: 'listarNotas', token, asistenteId: asistenteActualId });
-        const notas = (res && res.data) || [];
-        let html = '<div style="display:grid;gap:8px;">';
-        if (notas.length === 0) html += '<div class="empty">Sin notas registradas.</div>';
-        notas.forEach(n => {
-          html += `<div style="background:#1e293b;padding:10px 12px;border-radius:10px;border-left:4px solid #3b82f6;">
-            <div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px;">
-              <span>${escapeHtml(n.fecha)} · ${escapeHtml(n.tipo)}</span>
-              <span>${escapeHtml(n.usuario)}</span>
-            </div>
-            <div style="color:#f8fafc;font-size:15px;">${escapeHtml(n.nota)}</div>
-            <div style="margin-top:6px;text-align:right;"><button class="btn btn-danger btn-sm" onclick="eliminarNota(${n.row})">🗑</button></div>
-          </div>`;
-        });
-        html += '</div>';
-        html += `<div style="margin-top:12px;display:grid;gap:8px;">
+      // Mostrar el formulario de inmediato
+      document.getElementById('modal2Body').innerHTML = `
+        <div id="notasList" class="skeleton"></div>
+        <div style="margin-top:12px;display:grid;gap:8px;">
           <div class="field"><label>Tipo</label><select id="notaTipo"><option>Llamada</option><option>WhatsApp</option><option>Otro</option></select></div>
           <div class="field"><label>Nota</label><textarea id="notaTexto" placeholder="Escribe la nota..."></textarea></div>
           <div class="actions"><button class="btn btn-primary btn-sm" onclick="guardarNota()">💾 Agregar nota</button><button class="btn btn-secondary btn-sm" onclick="cerrarModal2()">Cerrar</button></div>
-        </div>`;
-        body.innerHTML = html;
-        actions.innerHTML = '';
+        </div>
+      `;
+      abrirModal2('📝 Notas - ' + (d ? d.nombre : ''));
+      // Cargar notas en segundo plano
+      cargarNotasLista();
+    }
+
+    async function cargarNotasLista() {
+      const list = document.getElementById('notasList');
+      if (!list) return;
+      try {
+        const res = await api({ action: 'listarNotas', token, asistenteId: asistenteActualId });
+        const notas = (res && res.data) || [];
+        notasCache = notas;
+        list.classList.remove('skeleton');
+        list.classList.add('fade-in');
+        if (notas.length === 0) { list.innerHTML = '<div class="empty">Sin notas registradas.</div>'; return; }
+        list.innerHTML = notas.map(n => `
+          <div id="nota-${n.row}" style="background:#1e293b;padding:10px 12px;border-radius:10px;border-left:4px solid #3b82f6;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px;">
+              <span>${escapeHtml(n.fecha)} · ${escapeHtml(n.tipo)}</span>
+              <span>${escapeHtml(n.nombre || n.usuario)}</span>
+            </div>
+            <div style="color:#f8fafc;font-size:15px;">${escapeHtml(n.nota)}</div>
+            <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;">
+              <button class="btn btn-secondary btn-sm" onclick="editarNota(${n.row})">✏️</button>
+              <button class="btn btn-danger btn-sm" onclick="eliminarNota(${n.row})">🗑</button>
+            </div>
+          </div>
+        `).join('');
       } catch (e) {
-        body.innerHTML = '<div class="empty">Error: ' + escapeHtml(e.message) + '</div>';
+        list.classList.remove('skeleton');
+        list.innerHTML = '<div class="empty">Error: ' + escapeHtml(e.message) + '</div>';
       }
+    }
+
+    function renderNotasCache() {
+      const list = document.getElementById('notasList');
+      if (!list) return;
+      if (notasCache.length === 0) { list.innerHTML = '<div class="empty">Sin notas registradas.</div>'; return; }
+      list.innerHTML = notasCache.map(n => `
+        <div id="nota-${n.row}" style="background:#1e293b;padding:10px 12px;border-radius:10px;border-left:4px solid #3b82f6;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px;">
+            <span>${escapeHtml(n.fecha)} · ${escapeHtml(n.tipo)}</span>
+            <span>${escapeHtml(n.usuario)}</span>
+          </div>
+          <div style="color:#f8fafc;font-size:15px;">${escapeHtml(n.nota)}</div>
+          <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;">
+            <button class="btn btn-secondary btn-sm" onclick="editarNota(${n.row})">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="eliminarNota(${n.row})">🗑</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function renderNotas() {
+      await cargarNotasLista();
+    }
+
+    function editarNota(row) {
+      const n = notasCache.find(x => x.row === row);
+      if (!n) return;
+      const cont = document.getElementById('nota-' + row);
+      if (!cont) return;
+      cont.style.borderLeft = '4px solid #f59e0b';
+      cont.style.background = '#2a2f45';
+      cont.innerHTML = `
+        <div style="display:grid;gap:8px;">
+          <div class="field"><label>Tipo</label><select id="editNotaTipo-${row}"><option ${n.tipo==='Llamada'?'selected':''}>Llamada</option><option ${n.tipo==='WhatsApp'?'selected':''}>WhatsApp</option><option ${n.tipo==='Otro'?'selected':''}>Otro</option></select></div>
+          <div class="field"><label>Nota</label><textarea id="editNotaTexto-${row}">${escapeHtml(n.nota)}</textarea></div>
+          <div class="actions">
+            <button class="btn btn-primary btn-sm" onclick="guardarEdicionNota(${row})">💾 Actualizar</button>
+            <button class="btn btn-secondary btn-sm" onclick="renderNotasCache()">Cancelar</button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function guardarEdicionNota(row) {
+      const tipo = document.getElementById('editNotaTipo-' + row).value;
+      const nota = document.getElementById('editNotaTexto-' + row).value;
+      if (!nota.trim()) { toast('La nota es obligatoria', 'error'); return; }
+      try {
+        const res = await api({ action: 'actualizarNota', token, row, tipo, nota });
+        if (res && res.ok) {
+          toast('Nota actualizada', 'success');
+          await cargarNotasLista();
+        } else toast((res && res.error) || 'Error', 'error');
+      } catch (e) { toast('Error: ' + e.message, 'error'); }
     }
 
     async function guardarNota() {
@@ -750,7 +914,8 @@
         const res = await api({ action: 'agregarNota', token, asistenteId: asistenteActualId, tipo, nota });
         if (res && res.ok) {
           toast('Nota agregada', 'success');
-          await renderNotas();
+          document.getElementById('notaTexto').value = '';
+          await cargarNotasLista();
         } else toast((res && res.error) || 'Error', 'error');
       } catch (e) { toast('Error: ' + e.message, 'error'); }
     }
@@ -759,7 +924,7 @@
       if (!confirm('¿Eliminar esta nota?')) return;
       try {
         const res = await api({ action: 'eliminarNota', token, row });
-        if (res && res.ok) { toast('Nota eliminada', 'success'); await renderNotas(); }
+        if (res && res.ok) { toast('Nota eliminada', 'success'); await cargarNotasLista(); }
         else toast((res && res.error) || 'Error', 'error');
       } catch (e) { toast('Error: ' + e.message, 'error'); }
     }
@@ -768,38 +933,98 @@
       const d = datos.find(x => x.row === row);
       asistenteActualId = d ? (d.id || d.row) : null;
       if (!asistenteActualId) { toast('No se encontró el registro', 'error'); return; }
-      document.getElementById('modal2Body').innerHTML = '<div class="progress-wrap show"><div class="progress-bar indeterminate"><div class="fill"></div></div><div class="progress-label">Cargando peticiones...</div></div>';
       document.getElementById('modal2Actions').innerHTML = '';
+      document.getElementById('modal2Body').innerHTML = `
+        <div id="peticionesList" class="skeleton"></div>
+        <div style="margin-top:12px;display:grid;gap:8px;">
+          <div class="field"><label>Petición de oración</label><textarea id="peticionTexto" placeholder="Escribe la petición..."></textarea></div>
+          <div class="actions"><button class="btn btn-primary btn-sm" onclick="guardarPeticion()">💾 Agregar petición</button><button class="btn btn-secondary btn-sm" onclick="cerrarModal2()">Cerrar</button></div>
+        </div>
+      `;
       abrirModal2('🙏 Peticiones de oración - ' + (d ? d.nombre : ''));
-      await renderPeticiones();
+      cargarPeticionesLista();
     }
 
-    async function renderPeticiones() {
-      const body = document.getElementById('modal2Body');
+    async function cargarPeticionesLista() {
+      const list = document.getElementById('peticionesList');
+      if (!list) return;
       try {
         const res = await api({ action: 'listarPeticiones', token, asistenteId: asistenteActualId });
         const peticiones = (res && res.data) || [];
-        let html = '<div style="display:grid;gap:8px;">';
-        if (peticiones.length === 0) html += '<div class="empty">Sin peticiones registradas.</div>';
-        peticiones.forEach(p => {
-          html += `<div style="background:#1e293b;padding:10px 12px;border-radius:10px;border-left:4px solid #a855f7;">
+        peticionesCache = peticiones;
+        list.classList.remove('skeleton');
+        list.classList.add('fade-in');
+        if (peticiones.length === 0) { list.innerHTML = '<div class="empty">Sin peticiones registradas.</div>'; return; }
+        list.innerHTML = peticiones.map(p => `
+          <div id="pet-${p.row}" style="background:#1e293b;padding:10px 12px;border-radius:10px;border-left:4px solid #a855f7;">
             <div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px;">
               <span>${escapeHtml(p.fecha)}</span>
-              <span>${escapeHtml(p.usuario)}</span>
+              <span>${escapeHtml(p.nombre || p.usuario)}</span>
             </div>
             <div style="color:#f8fafc;font-size:15px;">${escapeHtml(p.peticion)}</div>
-            <div style="margin-top:6px;text-align:right;"><button class="btn btn-danger btn-sm" onclick="eliminarPeticion(${p.row})">🗑</button></div>
-          </div>`;
-        });
-        html += '</div>';
-        html += `<div style="margin-top:12px;display:grid;gap:8px;">
-          <div class="field"><label>Petición de oración</label><textarea id="peticionTexto" placeholder="Escribe la petición..."></textarea></div>
-          <div class="actions"><button class="btn btn-primary btn-sm" onclick="guardarPeticion()">💾 Agregar petición</button><button class="btn btn-secondary btn-sm" onclick="cerrarModal2()">Cerrar</button></div>
-        </div>`;
-        body.innerHTML = html;
+            <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;">
+              <button class="btn btn-secondary btn-sm" onclick="editarPeticion(${p.row})">✏️</button>
+              <button class="btn btn-danger btn-sm" onclick="eliminarPeticion(${p.row})">🗑</button>
+            </div>
+          </div>
+        `).join('');
       } catch (e) {
-        body.innerHTML = '<div class="empty">Error: ' + escapeHtml(e.message) + '</div>';
+        list.classList.remove('skeleton');
+        list.innerHTML = '<div class="empty">Error: ' + escapeHtml(e.message) + '</div>';
       }
+    }
+
+    function renderPeticionesCache() {
+      const list = document.getElementById('peticionesList');
+      if (!list) return;
+      if (peticionesCache.length === 0) { list.innerHTML = '<div class="empty">Sin peticiones registradas.</div>'; return; }
+      list.innerHTML = peticionesCache.map(p => `
+        <div id="pet-${p.row}" style="background:#1e293b;padding:10px 12px;border-radius:10px;border-left:4px solid #a855f7;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px;">
+            <span>${escapeHtml(p.fecha)}</span>
+            <span>${escapeHtml(p.usuario)}</span>
+          </div>
+          <div style="color:#f8fafc;font-size:15px;">${escapeHtml(p.peticion)}</div>
+          <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;">
+            <button class="btn btn-secondary btn-sm" onclick="editarPeticion(${p.row})">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="eliminarPeticion(${p.row})">🗑</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function renderPeticiones() {
+      await cargarPeticionesLista();
+    }
+
+    function editarPeticion(row) {
+      const p = peticionesCache.find(x => x.row === row);
+      if (!p) return;
+      const cont = document.getElementById('pet-' + row);
+      if (!cont) return;
+      cont.style.borderLeft = '4px solid #f59e0b';
+      cont.style.background = '#2a2f45';
+      cont.innerHTML = `
+        <div style="display:grid;gap:8px;">
+          <div class="field"><label>Petición de oración</label><textarea id="editPetTexto-${row}">${escapeHtml(p.peticion)}</textarea></div>
+          <div class="actions">
+            <button class="btn btn-primary btn-sm" onclick="guardarEdicionPeticion(${row})">💾 Actualizar</button>
+            <button class="btn btn-secondary btn-sm" onclick="renderPeticionesCache()">Cancelar</button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function guardarEdicionPeticion(row) {
+      const peticion = document.getElementById('editPetTexto-' + row).value;
+      if (!peticion.trim()) { toast('La petición es obligatoria', 'error'); return; }
+      try {
+        const res = await api({ action: 'actualizarPeticion', token, row, peticion });
+        if (res && res.ok) {
+          toast('Petición actualizada', 'success');
+          await cargarPeticionesLista();
+        } else toast((res && res.error) || 'Error', 'error');
+      } catch (e) { toast('Error: ' + e.message, 'error'); }
     }
 
     async function guardarPeticion() {
@@ -809,7 +1034,8 @@
         const res = await api({ action: 'agregarPeticion', token, asistenteId: asistenteActualId, peticion });
         if (res && res.ok) {
           toast('Petición agregada', 'success');
-          await renderPeticiones();
+          document.getElementById('peticionTexto').value = '';
+          await cargarPeticionesLista();
         } else toast((res && res.error) || 'Error', 'error');
       } catch (e) { toast('Error: ' + e.message, 'error'); }
     }
@@ -818,7 +1044,7 @@
       if (!confirm('¿Eliminar esta petición?')) return;
       try {
         const res = await api({ action: 'eliminarPeticion', token, row });
-        if (res && res.ok) { toast('Petición eliminada', 'success'); await renderPeticiones(); }
+        if (res && res.ok) { toast('Petición eliminada', 'success'); await cargarPeticionesLista(); }
         else toast((res && res.error) || 'Error', 'error');
       } catch (e) { toast('Error: ' + e.message, 'error'); }
     }
@@ -948,12 +1174,14 @@
         if (b) { b.classList.remove('hidden'); b.textContent = '⚠️ Configura el WEB_APP_URL en el código fuente antes de usar.'; }
       }
       restoreSession();
-      const ok = await verificarSesion();
-      if (ok) actualizarVistaGestion();
-      else {
-        document.getElementById('gestion-login').classList.remove('hidden');
-        document.getElementById('gestion-app').classList.add('hidden');
-      }
+      // Verificar sesión en segundo plano para no bloquear la UI
+      verificarSesion().then(ok => {
+        if (ok) actualizarVistaGestion();
+        else {
+          document.getElementById('gestion-login').classList.remove('hidden');
+          document.getElementById('gestion-app').classList.add('hidden');
+        }
+      });
       ['buscar','filtroEstado','filtroColab'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
